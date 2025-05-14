@@ -1,0 +1,9 @@
+{
+    "tasks": [
+        {
+            "label": "compile",
+            "type": "shell",
+            "command": "odin build src --out:game.exe -debug"
+        }
+    ]
+}
