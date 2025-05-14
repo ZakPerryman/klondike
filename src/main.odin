@@ -94,7 +94,8 @@ CardValues :: enum int {
 
 CardData :: struct {
     suite: CardSuites,
-    cardValue: CardValues
+    cardValue: CardValues,
+    hidden: bool,
 }
 
 GameState :: struct {
@@ -107,13 +108,16 @@ GameState :: struct {
 
     columns: [7][dynamic]CardData,
     tableu: [4][dynamic]CardData,
+
+    clearDelay: f32
 }
 
 InterfaceStates :: enum {
     MAIN_MENU,
     OPTIONS_MENU,
     GAME,
-    PAUSE
+    PAUSE,
+    END_SCREEN,
 }
 
 MainMenuButtons :: enum {
@@ -271,6 +275,8 @@ main :: proc() {
                 gameProcess()
             case .PAUSE:
                 pauseProcess()
+            case .END_SCREEN:
+                endProcess()
         }
 
         rl.EndDrawing()
@@ -393,61 +399,61 @@ initializeGame :: proc(gameState: ^GameState) {
     gameState.handColumnIndex = -1
 
     gameState.deck = {
-        CardData{ .HEARTS, .ACE },
-        CardData{ .HEARTS, .TWO },
-        CardData{ .HEARTS, .THREE },
-        CardData{ .HEARTS, .FOUR },
-        CardData{ .HEARTS, .FIVE },
-        CardData{ .HEARTS, .SIX },
-        CardData{ .HEARTS, .SEVEN },
-        CardData{ .HEARTS, .EIGHT },
-        CardData{ .HEARTS, .NINE },
-        CardData{ .HEARTS, .TEN },
-        CardData{ .HEARTS, .JACK },
-        CardData{ .HEARTS, .QUEEN },
-        CardData{ .HEARTS, .KING },
+        CardData{ .HEARTS, .ACE, true },
+        CardData{ .HEARTS, .TWO, true },
+        CardData{ .HEARTS, .THREE, true },
+        CardData{ .HEARTS, .FOUR, true },
+        CardData{ .HEARTS, .FIVE, true },
+        CardData{ .HEARTS, .SIX, true },
+        CardData{ .HEARTS, .SEVEN, true },
+        CardData{ .HEARTS, .EIGHT, true },
+        CardData{ .HEARTS, .NINE, true },
+        CardData{ .HEARTS, .TEN, true },
+        CardData{ .HEARTS, .JACK, true },
+        CardData{ .HEARTS, .QUEEN, true },
+        CardData{ .HEARTS, .KING, true },
 
-        CardData{ .SPADES, .ACE },
-        CardData{ .SPADES, .TWO },
-        CardData{ .SPADES, .THREE },
-        CardData{ .SPADES, .FOUR },
-        CardData{ .SPADES, .FIVE },
-        CardData{ .SPADES, .SIX },
-        CardData{ .SPADES, .SEVEN },
-        CardData{ .SPADES, .EIGHT },
-        CardData{ .SPADES, .NINE },
-        CardData{ .SPADES, .TEN },
-        CardData{ .SPADES, .JACK },
-        CardData{ .SPADES, .QUEEN },
-        CardData{ .SPADES, .KING },
+        CardData{ .SPADES, .ACE, true },
+        CardData{ .SPADES, .TWO, true },
+        CardData{ .SPADES, .THREE, true },
+        CardData{ .SPADES, .FOUR, true },
+        CardData{ .SPADES, .FIVE, true },
+        CardData{ .SPADES, .SIX, true },
+        CardData{ .SPADES, .SEVEN, true },
+        CardData{ .SPADES, .EIGHT, true },
+        CardData{ .SPADES, .NINE, true },
+        CardData{ .SPADES, .TEN, true },
+        CardData{ .SPADES, .JACK, true },
+        CardData{ .SPADES, .QUEEN, true },
+        CardData{ .SPADES, .KING, true },
 
-        CardData{ .DIAMONDS, .ACE },
-        CardData{ .DIAMONDS, .TWO },
-        CardData{ .DIAMONDS, .THREE },
-        CardData{ .DIAMONDS, .FOUR },
-        CardData{ .DIAMONDS, .FIVE },
-        CardData{ .DIAMONDS, .SIX },
-        CardData{ .DIAMONDS, .SEVEN },
-        CardData{ .DIAMONDS, .EIGHT },
-        CardData{ .DIAMONDS, .NINE },
-        CardData{ .DIAMONDS, .TEN },
-        CardData{ .DIAMONDS, .JACK },
-        CardData{ .DIAMONDS, .QUEEN },
-        CardData{ .DIAMONDS, .KING },
+        CardData{ .DIAMONDS, .ACE, true },
+        CardData{ .DIAMONDS, .TWO, true },
+        CardData{ .DIAMONDS, .THREE, true },
+        CardData{ .DIAMONDS, .FOUR, true },
+        CardData{ .DIAMONDS, .FIVE, true },
+        CardData{ .DIAMONDS, .SIX, true },
+        CardData{ .DIAMONDS, .SEVEN, true },
+        CardData{ .DIAMONDS, .EIGHT, true },
+        CardData{ .DIAMONDS, .NINE, true },
+        CardData{ .DIAMONDS, .TEN, true },
+        CardData{ .DIAMONDS, .JACK, true },
+        CardData{ .DIAMONDS, .QUEEN, true },
+        CardData{ .DIAMONDS, .KING, true },
 
-        CardData{ .CLUBS, .ACE },
-        CardData{ .CLUBS, .TWO },
-        CardData{ .CLUBS, .THREE },
-        CardData{ .CLUBS, .FOUR },
-        CardData{ .CLUBS, .FIVE },
-        CardData{ .CLUBS, .SIX },
-        CardData{ .CLUBS, .SEVEN },
-        CardData{ .CLUBS, .EIGHT },
-        CardData{ .CLUBS, .NINE },
-        CardData{ .CLUBS, .TEN },
-        CardData{ .CLUBS, .JACK },
-        CardData{ .CLUBS, .QUEEN },
-        CardData{ .CLUBS, .KING },
+        CardData{ .CLUBS, .ACE, true },
+        CardData{ .CLUBS, .TWO, true },
+        CardData{ .CLUBS, .THREE, true },
+        CardData{ .CLUBS, .FOUR, true },
+        CardData{ .CLUBS, .FIVE, true },
+        CardData{ .CLUBS, .SIX, true },
+        CardData{ .CLUBS, .SEVEN, true },
+        CardData{ .CLUBS, .EIGHT, true },
+        CardData{ .CLUBS, .NINE, true },
+        CardData{ .CLUBS, .TEN, true },
+        CardData{ .CLUBS, .JACK, true },
+        CardData{ .CLUBS, .QUEEN, true },
+        CardData{ .CLUBS, .KING, true },
     }
 
     rand.shuffle(gameState.deck[:])
@@ -460,6 +466,10 @@ initializeGame :: proc(gameState: ^GameState) {
         for i in 0..=idx {
             append(&gameState.columns[idx], gameState.playDeck[0])
             ordered_remove(&gameState.playDeck, 0)
+            
+            if(i == idx) {
+                gameState.columns[idx][i].hidden = false
+            }
         }
     }
 }
@@ -526,7 +536,11 @@ gameProcess :: proc() {
         }
 
         for card, cIdx in cardStack {
-            rl.DrawTexture(CardTextures[getCardDataTexture(card)], stackX, cast(i32)cIdx * 16 + 32, rl.WHITE)
+            if(card.hidden) {
+                rl.DrawTexture(CardBack, stackX, cast(i32)cIdx * 16 + 32, rl.WHITE)
+            } else {
+                rl.DrawTexture(CardTextures[getCardDataTexture(card)], stackX, cast(i32)cIdx * 16 + 32, rl.WHITE)
+            }
         }
     }
 
@@ -574,12 +588,18 @@ gameProcess :: proc() {
                         if(cIdx != len(cardStack) - 1) {
                             if(isStackValid(cardStack[cIdx:len(cardStack)])) {
                                 AppState.gameState.handColumnIndex = idx
+                                if(cIdx > 0) {
+                                    cardStack[cIdx - 1].hidden = false
+                                }
                                 for newHandCardIdx := len(cardStack) - 1; newHandCardIdx >= cIdx; newHandCardIdx -= 1 {
                                     append(&AppState.gameState.handCards, cardStack[newHandCardIdx])
                                     ordered_remove(&cardStack, newHandCardIdx)
                                 }
                             }
                         } else {
+                            if(cIdx > 0) {
+                                cardStack[cIdx - 1].hidden = false
+                            }
                             AppState.gameState.handColumnIndex = idx
                             append(&AppState.gameState.handCards, card)
                             ordered_remove(&cardStack, cIdx)
@@ -596,9 +616,9 @@ gameProcess :: proc() {
         stackX : i32 = 48 * cast(i32)idx + 48 * 8
         if(len(cardStack) == 0) {
             rl.DrawTexture(CardBack, stackX, 16, rl.WHITE)
-        }
-        for card, cIdx in cardStack {
-            rl.DrawTexture(CardTextures[getCardDataTexture(card)], stackX, cast(i32)cIdx * 16 + 16, rl.WHITE)
+        } else {
+            card := cardStack[len(cardStack) - 1]
+            rl.DrawTexture(CardTextures[getCardDataTexture(card)], stackX, 16, rl.WHITE)
         }
     }
 
@@ -625,6 +645,46 @@ gameProcess :: proc() {
     if(len(AppState.gameState.handCards) > 0) {
         #reverse for handCard, idx in AppState.gameState.handCards {
             rl.DrawTexture(CardTextures[getCardDataTexture(handCard)], rl.GetMouseX(), rl.GetMouseY() + cast(i32)(8 * idx), rl.WHITE)
+        }
+    }
+
+    canStartAutoClear := true
+    for column in AppState.gameState.columns {
+        if(len(column) != 0 && !isStackValid(column[:])) {
+            canStartAutoClear = false
+        }
+    }
+
+    if(len(AppState.gameState.playDeck) != 0 || len(AppState.gameState.handCards) != 0) {
+        canStartAutoClear = false
+    }
+
+    if(canStartAutoClear && AppState.gameState.clearDelay <= 0.0) {
+        columnClear: for &column in AppState.gameState.columns {
+            for &tableau in AppState.gameState.tableu {
+                if(len(column) > 0) {
+                    if(canStackTableu(column[len(column)-1:len(column)], tableau[:])) {
+                        append(&tableau, column[len(column)-1])
+                        ordered_remove(&column, len(column)-1)
+                        AppState.gameState.clearDelay = 0.25
+                        break columnClear
+                    }
+                }
+            }
+        }
+    }
+
+    if(AppState.gameState.clearDelay > 0) {
+        AppState.gameState.clearDelay -= rl.GetFrameTime()
+    }
+
+    if(isGameWon(AppState.gameState)) {
+        AppState.currentInterface = .END_SCREEN
+    }
+
+    if(len(AppState.gameState.handCards) > 0) {
+        for &card in AppState.gameState.handCards {
+            card.hidden = false
         }
     }
 }
@@ -858,6 +918,48 @@ pauseProcess :: proc() {
     }
     slice.render_rectangle(pauseResume, menuResumeColor)
     slice.render_center_text("Resume", 24, pauseResume)
+
+    if(currentButtonState != AppState.pauseMenuState.lastButtonHovered) {
+        AppState.pauseMenuState.lastButtonHovered = currentButtonState
+        play_menu_sound()
+    }
+}
+
+endProcess :: proc() {
+    currentButtonState : PauseMenuButton = .NONE
+
+    if(rl.IsKeyPressed(.ESCAPE)) {
+        AppState.currentInterface = .GAME
+    }
+
+    menuRect := slice.Rect{
+        0,
+        0,
+        cast(f32)rl.GetRenderWidth(),
+        cast(f32)rl.GetRenderHeight(),
+    }
+
+    menuRect = slice.decorate_pad(menuRect, cast(f32)rl.GetRenderHeight() * 0.1)
+    menuRect = slice.decorate_pad_width(menuRect, cast(f32)rl.GetRenderWidth() * 0.2)
+
+    menuEndReturn := slice.slice_bottom(&menuRect, 32)
+    endReturnColor := rl.WHITE
+    if(rl.CheckCollisionPointRec(rl.GetMousePosition(), transmute(rl.Rectangle)menuEndReturn)) {
+        currentButtonState = .QUIT
+        endReturnColor = rl.YELLOW
+        if(rl.IsMouseButtonDown(.LEFT)) {
+            endReturnColor = rl.BLUE
+        }
+        if(rl.IsMouseButtonReleased(.LEFT)) {
+            AppState.currentInterface = .MAIN_MENU
+        }
+    }
+    slice.render_rectangle(menuEndReturn, endReturnColor)
+    slice.render_center_text("Return to Menu", 24, menuEndReturn)
+
+    menuEndGameOver := slice.slice_top(&menuRect, 128)
+
+    slice.render_center_text("Victory!", 48, menuEndGameOver, rl.WHITE)
 
     if(currentButtonState != AppState.pauseMenuState.lastButtonHovered) {
         AppState.pauseMenuState.lastButtonHovered = currentButtonState

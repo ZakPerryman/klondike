@@ -91,7 +91,7 @@ render_rounded_rectangle :: proc(rect: Rect, corner: f32, color: rl.Color) {
     rl.DrawRectangleRounded(transmute(rl.Rectangle)rect, corner, 8, color)
 }
 
-render_center_text :: proc(text: cstring, textSize: f32, rect: Rect) {
+render_center_text :: proc(text: cstring, textSize: f32, rect: Rect, textColor: rl.Color = rl.BLACK) {
     font := rl.GetFontDefault()
     textLength := rl.MeasureTextEx(font, text, textSize, 2)
     rl.DrawTextPro(
@@ -103,6 +103,6 @@ render_center_text :: proc(text: cstring, textSize: f32, rect: Rect) {
         0,
         textSize,
         2,
-        rl.BLACK
+        textColor
     )
 }
