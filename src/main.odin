@@ -3,6 +3,7 @@ package main
 import rl "vendor:raylib"
 
 import "core:fmt"
+import "core:math"
 import "core:math/rand"
 
 import "./slice"
@@ -120,44 +121,10 @@ InterfaceStates :: enum {
     END_SCREEN,
 }
 
-MainMenuButtons :: enum {
-    NONE,
-    START,
-    OPTIONS,
-    QUIT,
-}
-
-MainMenuState :: struct {
-    lastButtonHovered : MainMenuButtons,
-}
-
-OptionMenuButton :: enum {
-    NONE,
-    BACK,
-}
-
-OptionMenuState :: struct {
-    lastButtonHovered : OptionMenuButton,
-}
-
-PauseMenuButton :: enum {
-    NONE,
-    BACK,
-    QUIT,
-}
-
-PauseMenuState :: struct {
-    lastButtonHovered : PauseMenuButton,
-}
-
 AppState := struct {
     currentInterface: InterfaceStates,
     shouldQuit : bool,
     gameState : GameState,
-
-    mainMenuState : MainMenuState,
-    pauseMenuState : PauseMenuState,
-    optionMenuState : OptionMenuState,
 }{
     currentInterface = .MAIN_MENU,
 }
@@ -293,7 +260,6 @@ play_menu_sound :: proc() {
 }
 
 mainMenuProcess :: proc() {
-    currentButtonState := MainMenuButtons.NONE
     menuRect := slice.Rect{
         0,
         0,
@@ -308,7 +274,9 @@ mainMenuProcess :: proc() {
     menuStartColor := rl.WHITE
     if(rl.CheckCollisionPointRec(rl.GetMousePosition(), transmute(rl.Rectangle)menuButtonStart)) {
         menuStartColor = rl.YELLOW
-        currentButtonState = .START
+        if(!rl.CheckCollisionPointRec(rl.GetMousePosition() - rl.GetMouseDelta(), transmute(rl.Rectangle)menuButtonStart)) {
+            play_menu_sound()
+        }
 
         if(rl.IsMouseButtonDown(.LEFT)) {
             menuStartColor = rl.BLUE
@@ -326,7 +294,9 @@ mainMenuProcess :: proc() {
     menuOptionColor := rl.WHITE
     if(rl.CheckCollisionPointRec(rl.GetMousePosition(), transmute(rl.Rectangle)menuButtonOptions)) {
         menuOptionColor = rl.YELLOW
-        currentButtonState = .OPTIONS
+        if(!rl.CheckCollisionPointRec(rl.GetMousePosition() - rl.GetMouseDelta(), transmute(rl.Rectangle)menuButtonOptions)) {
+            play_menu_sound()
+        }
 
         if(rl.IsMouseButtonDown(.LEFT)) {
             menuOptionColor = rl.BLUE
@@ -342,7 +312,9 @@ mainMenuProcess :: proc() {
     menuQuitColor := rl.WHITE
     if(rl.CheckCollisionPointRec(rl.GetMousePosition(), transmute(rl.Rectangle)menuButtonQuit)) {
         menuQuitColor = rl.YELLOW
-        currentButtonState = .QUIT
+        if(!rl.CheckCollisionPointRec(rl.GetMousePosition() - rl.GetMouseDelta(), transmute(rl.Rectangle)menuButtonQuit)) {
+            play_menu_sound()
+        }
 
         if(rl.IsMouseButtonDown(.LEFT)) {
             menuQuitColor = rl.BLUE
@@ -353,15 +325,9 @@ mainMenuProcess :: proc() {
     }
     slice.render_rectangle(menuButtonQuit, menuQuitColor)
     slice.render_center_text("Quit", 24, menuButtonQuit)
-
-    if(currentButtonState != AppState.mainMenuState.lastButtonHovered) {
-        AppState.mainMenuState.lastButtonHovered = currentButtonState
-        play_menu_sound()
-    }
 }
 
 optionsMenuProcess :: proc() {
-    currentButtonState := OptionMenuButton.NONE
     menuRect := slice.Rect{
         0,
         0,
@@ -376,7 +342,9 @@ optionsMenuProcess :: proc() {
     menuBackColor := rl.WHITE
     if(rl.CheckCollisionPointRec(rl.GetMousePosition(), transmute(rl.Rectangle)menuOptionBack)) {
         menuBackColor = rl.YELLOW
-        AppState.optionMenuState.lastButtonHovered = .BACK
+        if(!rl.CheckCollisionPointRec(rl.GetMousePosition() - rl.GetMouseDelta(), transmute(rl.Rectangle)menuOptionBack)) {
+            play_menu_sound()
+        }
         if(rl.IsMouseButtonDown(.LEFT)) {
             menuBackColor = rl.BLUE
         }
@@ -386,11 +354,6 @@ optionsMenuProcess :: proc() {
     }
     slice.render_rectangle(menuOptionBack, menuBackColor)
     slice.render_center_text("Back", 24, menuOptionBack)
-
-    if(currentButtonState != AppState.optionMenuState.lastButtonHovered) {
-        AppState.optionMenuState.lastButtonHovered = currentButtonState
-        play_menu_sound()
-    }
 }
 
 initializeGame :: proc(gameState: ^GameState) {
@@ -490,6 +453,12 @@ gameProcess :: proc() {
 
     // Return logic
     if(rl.IsMouseButtonPressed(.RIGHT) && AppState.gameState.handColumnIndex != -1) {
+        if(AppState.gameState.handColumnIndex <= -3) {
+            tableuIndex := math.abs(AppState.gameState.handColumnIndex) - 3
+            append(&AppState.gameState.tableu[tableuIndex], AppState.gameState.handCards[0])
+            clear_dynamic_array(&AppState.gameState.handCards)
+            AppState.gameState.handColumnIndex = -1
+        }
         if(AppState.gameState.handColumnIndex == -2) {
             inject_at(&AppState.gameState.playDeck, 0, AppState.gameState.handCards[0])
             clear_dynamic_array(&AppState.gameState.handCards)
@@ -633,10 +602,16 @@ gameProcess :: proc() {
                 60
             })) {
                 if(rl.IsMouseButtonPressed(.LEFT)) {
-                    if(canStackTableu(AppState.gameState.handCards[:], cardStack[:])) {
-                        append(&cardStack, AppState.gameState.handCards[0])
-                        clear_dynamic_array(&AppState.gameState.handCards)
-                        AppState.gameState.handColumnIndex = -1
+                    if(len(AppState.gameState.handCards) == 0) {
+                        append(&AppState.gameState.handCards, cardStack[len(cardStack) - 1])
+                        ordered_remove(&cardStack, len(cardStack) - 1)
+                        AppState.gameState.handColumnIndex = -3 - idx
+                    } else { 
+                        if(canStackTableu(AppState.gameState.handCards[:], cardStack[:])) {
+                            append(&cardStack, AppState.gameState.handCards[0])
+                            clear_dynamic_array(&AppState.gameState.handCards)
+                            AppState.gameState.handColumnIndex = -1
+                        }
                     }
                 }
             }
@@ -873,8 +848,6 @@ getCardDataTexture :: proc(card: CardData) -> Cards {
 }
 
 pauseProcess :: proc() {
-    currentButtonState : PauseMenuButton = .NONE
-
     if(rl.IsKeyPressed(.ESCAPE)) {
         AppState.currentInterface = .GAME
     }
@@ -892,7 +865,9 @@ pauseProcess :: proc() {
     menuOptionQuit := slice.slice_bottom(&menuRect, 32)
     pauseQuitColor := rl.WHITE
     if(rl.CheckCollisionPointRec(rl.GetMousePosition(), transmute(rl.Rectangle)menuOptionQuit)) {
-        currentButtonState = .QUIT
+        if(!rl.CheckCollisionPointRec(rl.GetMousePosition() - rl.GetMouseDelta(), transmute(rl.Rectangle)menuOptionQuit)) {
+            play_menu_sound()
+        }
         pauseQuitColor = rl.YELLOW
         if(rl.IsMouseButtonDown(.LEFT)) {
             pauseQuitColor = rl.BLUE
@@ -907,7 +882,9 @@ pauseProcess :: proc() {
     pauseResume := slice.slice_top(&menuRect, 32)
     menuResumeColor := rl.WHITE
     if(rl.CheckCollisionPointRec(rl.GetMousePosition(), transmute(rl.Rectangle)pauseResume)) {
-        currentButtonState = .BACK
+        if(!rl.CheckCollisionPointRec(rl.GetMousePosition() - rl.GetMouseDelta(), transmute(rl.Rectangle)pauseResume)) {
+            play_menu_sound()
+        }
         menuResumeColor = rl.YELLOW
         if(rl.IsMouseButtonDown(.LEFT)) {
             menuResumeColor = rl.BLUE
@@ -918,16 +895,9 @@ pauseProcess :: proc() {
     }
     slice.render_rectangle(pauseResume, menuResumeColor)
     slice.render_center_text("Resume", 24, pauseResume)
-
-    if(currentButtonState != AppState.pauseMenuState.lastButtonHovered) {
-        AppState.pauseMenuState.lastButtonHovered = currentButtonState
-        play_menu_sound()
-    }
 }
 
 endProcess :: proc() {
-    currentButtonState : PauseMenuButton = .NONE
-
     if(rl.IsKeyPressed(.ESCAPE)) {
         AppState.currentInterface = .GAME
     }
@@ -943,9 +913,34 @@ endProcess :: proc() {
     menuRect = slice.decorate_pad_width(menuRect, cast(f32)rl.GetRenderWidth() * 0.2)
 
     menuEndReturn := slice.slice_bottom(&menuRect, 32)
+    menuEndNewgame := slice.slice_bottom(&menuRect, 32)
+
+    menuNewgameColor := rl.WHITE
+    if(rl.CheckCollisionPointRec(rl.GetMousePosition(), transmute(rl.Rectangle)menuEndNewgame)) {
+        if(!rl.CheckCollisionPointRec(rl.GetMousePosition() - rl.GetMouseDelta(), transmute(rl.Rectangle)menuEndNewgame)) {
+            play_menu_sound()
+        }
+
+        menuNewgameColor = rl.YELLOW
+
+        if(rl.IsMouseButtonDown(.LEFT)) {
+            menuNewgameColor = rl.BLUE
+        }
+        if(rl.IsMouseButtonReleased(.LEFT)) {
+            AppState.gameState = GameState{}
+            initializeGame(&AppState.gameState)
+            AppState.currentInterface = .GAME
+        }
+    }
+    slice.render_rectangle(menuEndNewgame, menuNewgameColor)
+    slice.render_center_text("New Game", 24, menuEndNewgame)
+
     endReturnColor := rl.WHITE
     if(rl.CheckCollisionPointRec(rl.GetMousePosition(), transmute(rl.Rectangle)menuEndReturn)) {
-        currentButtonState = .QUIT
+        if(!rl.CheckCollisionPointRec(rl.GetMousePosition() - rl.GetMouseDelta(), transmute(rl.Rectangle)menuEndReturn)) {
+            play_menu_sound()
+        }
+
         endReturnColor = rl.YELLOW
         if(rl.IsMouseButtonDown(.LEFT)) {
             endReturnColor = rl.BLUE
@@ -960,9 +955,4 @@ endProcess :: proc() {
     menuEndGameOver := slice.slice_top(&menuRect, 128)
 
     slice.render_center_text("Victory!", 48, menuEndGameOver, rl.WHITE)
-
-    if(currentButtonState != AppState.pauseMenuState.lastButtonHovered) {
-        AppState.pauseMenuState.lastButtonHovered = currentButtonState
-        play_menu_sound()
-    }
 }

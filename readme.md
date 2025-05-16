@@ -1,11 +1,14 @@
 TODO:
-- [] Implement card fountain when game is won
-- [] Implement restart button when game has been won for long enough
-- [*] Implement detection for mundane moves (auto finish when cards are sorted into alternating stacks)
-- [] Implement deck logic - three card and limited cycling as options?
-- [] Implement card animations?
-- [] Implement card handling sounds
-- [] Mouse Offset tracking for card dragging
-- [*] Fix Tableu to have only top card shown
-- [] Allow moving cards off of tableu
-- [*] Hidden Column Cards
+- [ ] Rewrite menu and game rules handling to be event based - makes handling of sounds easier
+- [ ] Implement card fountain when game is won
+- [ ] Implement restart button when game has been won for long enough
+- [x] Implement detection for mundane moves (auto finish when cards are sorted into alternating stacks)
+- [ ] Implement deck logic - three card and limited cycling as options?
+- [ ] Implement card animations?
+- [ ] Implement card handling sounds
+- [ ] Mouse Offset tracking for card dragging
+- [ ] Implement Music
+- [ ] Implement Stat tracking
+- [x] Fix Tableu to have only top card shown
+- [x] Allow moving cards off of tableu
+- [x] Hidden Column Cards
