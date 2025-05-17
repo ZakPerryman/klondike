@@ -259,6 +259,17 @@ play_menu_sound :: proc() {
     MENU_SOUND_COUNTER %= len(MenuSounds)
 }
 
+CARD_SOUND_COUNTER : int = 0
+play_card_sound :: proc() {
+    rl.PlaySound(CardDraw[CARD_SOUND_COUNTER])
+    CARD_SOUND_COUNTER += 1
+    CARD_SOUND_COUNTER %= len(CardDraw)
+}
+
+play_shuffle_sound :: proc() {
+    rl.PlaySound(CardShuffle)
+}
+
 mainMenuProcess :: proc() {
     menuRect := slice.Rect{
         0,
@@ -435,6 +446,8 @@ initializeGame :: proc(gameState: ^GameState) {
             }
         }
     }
+
+    play_shuffle_sound()
 }
 
 gameProcess :: proc() {
@@ -458,11 +471,13 @@ gameProcess :: proc() {
             append(&AppState.gameState.tableu[tableuIndex], AppState.gameState.handCards[0])
             clear_dynamic_array(&AppState.gameState.handCards)
             AppState.gameState.handColumnIndex = -1
+            play_card_sound()
         }
         if(AppState.gameState.handColumnIndex == -2) {
             inject_at(&AppState.gameState.playDeck, 0, AppState.gameState.handCards[0])
             clear_dynamic_array(&AppState.gameState.handCards)
             AppState.gameState.handColumnIndex = -1
+            play_card_sound()
         }
         else
         {
@@ -471,6 +486,7 @@ gameProcess :: proc() {
             }
             clear_dynamic_array(&AppState.gameState.handCards)
             AppState.gameState.handColumnIndex = -1
+            play_card_sound()
         }
 
     }
@@ -487,11 +503,13 @@ gameProcess :: proc() {
                 append(&AppState.gameState.handCards, AppState.gameState.playDeck[0])
                 ordered_remove(&AppState.gameState.playDeck, 0)
                 AppState.gameState.handColumnIndex = -2
+                play_card_sound()
             }
             if(rl.IsMouseButtonPressed(.RIGHT)){
                 card := AppState.gameState.playDeck[0]
                 append(&AppState.gameState.playDeck, card)
                 ordered_remove(&AppState.gameState.playDeck, 0)
+                play_card_sound()
             }
         }
     }
@@ -531,6 +549,7 @@ gameProcess :: proc() {
                         }
                         clear_dynamic_array(&AppState.gameState.handCards)
                         AppState.gameState.handColumnIndex = -1
+                        play_card_sound()
                     }
                 }
                 continue
@@ -552,6 +571,7 @@ gameProcess :: proc() {
                             }
                             clear_dynamic_array(&AppState.gameState.handCards)
                             AppState.gameState.handColumnIndex = -1
+                            play_card_sound()
                         }
                     } else {
                         if(cIdx != len(cardStack) - 1) {
@@ -564,6 +584,7 @@ gameProcess :: proc() {
                                     append(&AppState.gameState.handCards, cardStack[newHandCardIdx])
                                     ordered_remove(&cardStack, newHandCardIdx)
                                 }
+                                play_card_sound()
                             }
                         } else {
                             if(cIdx > 0) {
@@ -572,6 +593,7 @@ gameProcess :: proc() {
                             AppState.gameState.handColumnIndex = idx
                             append(&AppState.gameState.handCards, card)
                             ordered_remove(&cardStack, cIdx)
+                            play_card_sound()
                         }
                     }
                     break
@@ -606,11 +628,13 @@ gameProcess :: proc() {
                         append(&AppState.gameState.handCards, cardStack[len(cardStack) - 1])
                         ordered_remove(&cardStack, len(cardStack) - 1)
                         AppState.gameState.handColumnIndex = -3 - idx
+                        play_card_sound()
                     } else { 
                         if(canStackTableu(AppState.gameState.handCards[:], cardStack[:])) {
                             append(&cardStack, AppState.gameState.handCards[0])
                             clear_dynamic_array(&AppState.gameState.handCards)
                             AppState.gameState.handColumnIndex = -1
+                            play_card_sound()
                         }
                     }
                 }
@@ -642,6 +666,7 @@ gameProcess :: proc() {
                         append(&tableau, column[len(column)-1])
                         ordered_remove(&column, len(column)-1)
                         AppState.gameState.clearDelay = 0.25
+                        play_card_sound()
                         break columnClear
                     }
                 }
