@@ -99,8 +99,7 @@ CardData :: struct {
     hidden: bool,
 }
 
-GameState :: struct {
-    clearBackground: rl.Color,
+KlondikeState :: struct {
     deck: [52]CardData,
     playDeck: [dynamic]CardData,
 
@@ -113,24 +112,47 @@ GameState :: struct {
     clearDelay: f32
 }
 
+FreecellState :: struct {
+    deck: [52]CardData,
+    playDeck: [dynamic]CardData,
+
+    handCards: [dynamic]CardData,
+    handColumnIndex: int,
+
+    columns: [8][dynamic]CardData,
+
+    cells: [4]CardData,
+
+    tableu: [4][dynamic]CardData,
+
+    clearDelay: f32
+}
+
 InterfaceStates :: enum {
     MAIN_MENU,
     OPTIONS_MENU,
-    GAME,
+    KLONDIKE,
+    FREECELL,
     PAUSE,
     END_SCREEN,
 }
 
 AppState := struct {
+    clearBackground: rl.Color,
     currentInterface: InterfaceStates,
+    previousInterface: InterfaceStates,
     shouldQuit : bool,
-    gameState : GameState,
+    klondikeState : KlondikeState,
+    freecellState : FreecellState,
 }{
+    clearBackground = rl.GetColor(0x355E3BFF),
     currentInterface = .MAIN_MENU,
 }
 
 CardBack : rl.Texture2D
 CardTextures : [Cards]rl.Texture2D
+Logo : rl.Texture2D
+GameIcons : rl.Texture2D
 
 MenuSounds : []rl.Sound
 
@@ -141,6 +163,9 @@ CardDraw : []rl.Sound
 main :: proc() {
     rl.InitWindow(0, 0, PROJECT_NAME)
     rl.InitAudioDevice()
+
+    Logo = rl.LoadTexture("assets/gfx/logo.png")
+    GameIcons = rl.LoadTexture("assets/gfx/gamemode_icons.png")
 
     CardBack = rl.LoadTexture("assets/gfx/card_back.png")
 
@@ -227,7 +252,7 @@ main :: proc() {
 
     for(!rl.WindowShouldClose() && !AppState.shouldQuit) {
         rl.BeginDrawing()
-        rl.ClearBackground(rl.BLANK)
+        rl.ClearBackground(AppState.clearBackground)
 
         if(rl.IsKeyDown(.W)) {
             rl.PlaySound(CardShuffle)
@@ -238,8 +263,10 @@ main :: proc() {
                 mainMenuProcess()
             case .OPTIONS_MENU:
                 optionsMenuProcess()
-            case .GAME:
-                gameProcess()
+            case .KLONDIKE:
+                klondikeProcess()
+            case .FREECELL:
+                freecellProcess()
             case .PAUSE:
                 pauseProcess()
             case .END_SCREEN:
@@ -281,25 +308,56 @@ mainMenuProcess :: proc() {
     menuRect = slice.decorate_pad(menuRect, cast(f32)rl.GetRenderHeight() * 0.1)
     menuRect = slice.decorate_pad_width(menuRect, cast(f32)rl.GetRenderWidth() * 0.4)
 
+    menuLogo := slice.slice_top(&menuRect, 128)
+    slice.render_texture_centered(Logo, menuLogo)
+
+    menuRect = slice.decorate_pad_height(menuRect, 12)
+
     menuButtonStart := slice.slice_top(&menuRect, 32)
-    menuStartColor := rl.WHITE
-    if(rl.CheckCollisionPointRec(rl.GetMousePosition(), transmute(rl.Rectangle)menuButtonStart)) {
-        menuStartColor = rl.YELLOW
-        if(!rl.CheckCollisionPointRec(rl.GetMousePosition() - rl.GetMouseDelta(), transmute(rl.Rectangle)menuButtonStart)) {
+    menuButtonKlondike := slice.slice_left(&menuButtonStart, 32)
+    klondikeColor := rl.WHITE
+    if(rl.CheckCollisionPointRec(rl.GetMousePosition(), transmute(rl.Rectangle)menuButtonKlondike)) {
+        klondikeColor = rl.YELLOW
+        if(!rl.CheckCollisionPointRec(rl.GetMousePosition() - rl.GetMouseDelta(), transmute(rl.Rectangle)menuButtonKlondike)) {
             play_menu_sound()
         }
 
         if(rl.IsMouseButtonDown(.LEFT)) {
-            menuStartColor = rl.BLUE
+            klondikeColor = rl.BLUE
         }
         if(rl.IsMouseButtonReleased(.LEFT)) {
-            AppState.gameState = GameState{}
-            initializeGame(&AppState.gameState)
-            AppState.currentInterface = .GAME
+            AppState.klondikeState = KlondikeState{}
+            initializeKlondike(&AppState.klondikeState)
+            AppState.currentInterface = .KLONDIKE
         }
     }
-    slice.render_rectangle(menuButtonStart, menuStartColor)
-    slice.render_center_text("Start", 24, menuButtonStart)
+    slice.render_rounded_rectangle(menuButtonKlondike, 0.25, klondikeColor)
+    // slice.render_center_text("Start", 24, menuButtonKlondike)
+    slice.render_texture_section_centered(GameIcons, {
+        0, 0, 32, 32
+    }, menuButtonKlondike, rl.GRAY)
+
+    menuButtonFreecell := slice.slice_left(&menuButtonStart, 32)
+    freecellColor := rl.WHITE
+    if(rl.CheckCollisionPointRec(rl.GetMousePosition(), transmute(rl.Rectangle)menuButtonFreecell)) {
+        freecellColor = rl.YELLOW
+        if(!rl.CheckCollisionPointRec(rl.GetMousePosition() - rl.GetMouseDelta(), transmute(rl.Rectangle)menuButtonFreecell)) {
+            play_menu_sound()
+        }
+
+        if(rl.IsMouseButtonDown(.LEFT)) {
+            freecellColor = rl.BLUE
+        }
+        if(rl.IsMouseButtonReleased(.LEFT)) {
+            AppState.freecellState = FreecellState{}
+            initializeFreecell(&AppState.freecellState)
+            AppState.currentInterface = .FREECELL
+        }
+    }
+    slice.render_rounded_rectangle(menuButtonFreecell, 0.25, freecellColor)
+    slice.render_texture_section_centered(GameIcons, {
+        32, 0, 32, 32
+    }, menuButtonFreecell, rl.GRAY)
 
     menuButtonOptions := slice.slice_top(&menuRect, 32)
     menuOptionColor := rl.WHITE
@@ -316,7 +374,7 @@ mainMenuProcess :: proc() {
             AppState.currentInterface = .OPTIONS_MENU
         }
     }
-    slice.render_rectangle(menuButtonOptions, menuOptionColor)
+    slice.render_rounded_rectangle(menuButtonOptions, 0.25, menuOptionColor)
     slice.render_center_text("Options", 24, menuButtonOptions)
 
     menuButtonQuit := slice.slice_bottom(&menuRect, 32)
@@ -334,7 +392,7 @@ mainMenuProcess :: proc() {
             AppState.shouldQuit = true
         }
     }
-    slice.render_rectangle(menuButtonQuit, menuQuitColor)
+    slice.render_rounded_rectangle(menuButtonQuit, 0.25, menuQuitColor)
     slice.render_center_text("Quit", 24, menuButtonQuit)
 }
 
@@ -363,330 +421,8 @@ optionsMenuProcess :: proc() {
             AppState.currentInterface = .MAIN_MENU
         }
     }
-    slice.render_rectangle(menuOptionBack, menuBackColor)
+    slice.render_rounded_rectangle(menuOptionBack, 0.25, menuBackColor)
     slice.render_center_text("Back", 24, menuOptionBack)
-}
-
-initializeGame :: proc(gameState: ^GameState) {
-    gameState.clearBackground = transmute(rl.Color)rand.uint32()
-
-    gameState.handColumnIndex = -1
-
-    gameState.deck = {
-        CardData{ .HEARTS, .ACE, true },
-        CardData{ .HEARTS, .TWO, true },
-        CardData{ .HEARTS, .THREE, true },
-        CardData{ .HEARTS, .FOUR, true },
-        CardData{ .HEARTS, .FIVE, true },
-        CardData{ .HEARTS, .SIX, true },
-        CardData{ .HEARTS, .SEVEN, true },
-        CardData{ .HEARTS, .EIGHT, true },
-        CardData{ .HEARTS, .NINE, true },
-        CardData{ .HEARTS, .TEN, true },
-        CardData{ .HEARTS, .JACK, true },
-        CardData{ .HEARTS, .QUEEN, true },
-        CardData{ .HEARTS, .KING, true },
-
-        CardData{ .SPADES, .ACE, true },
-        CardData{ .SPADES, .TWO, true },
-        CardData{ .SPADES, .THREE, true },
-        CardData{ .SPADES, .FOUR, true },
-        CardData{ .SPADES, .FIVE, true },
-        CardData{ .SPADES, .SIX, true },
-        CardData{ .SPADES, .SEVEN, true },
-        CardData{ .SPADES, .EIGHT, true },
-        CardData{ .SPADES, .NINE, true },
-        CardData{ .SPADES, .TEN, true },
-        CardData{ .SPADES, .JACK, true },
-        CardData{ .SPADES, .QUEEN, true },
-        CardData{ .SPADES, .KING, true },
-
-        CardData{ .DIAMONDS, .ACE, true },
-        CardData{ .DIAMONDS, .TWO, true },
-        CardData{ .DIAMONDS, .THREE, true },
-        CardData{ .DIAMONDS, .FOUR, true },
-        CardData{ .DIAMONDS, .FIVE, true },
-        CardData{ .DIAMONDS, .SIX, true },
-        CardData{ .DIAMONDS, .SEVEN, true },
-        CardData{ .DIAMONDS, .EIGHT, true },
-        CardData{ .DIAMONDS, .NINE, true },
-        CardData{ .DIAMONDS, .TEN, true },
-        CardData{ .DIAMONDS, .JACK, true },
-        CardData{ .DIAMONDS, .QUEEN, true },
-        CardData{ .DIAMONDS, .KING, true },
-
-        CardData{ .CLUBS, .ACE, true },
-        CardData{ .CLUBS, .TWO, true },
-        CardData{ .CLUBS, .THREE, true },
-        CardData{ .CLUBS, .FOUR, true },
-        CardData{ .CLUBS, .FIVE, true },
-        CardData{ .CLUBS, .SIX, true },
-        CardData{ .CLUBS, .SEVEN, true },
-        CardData{ .CLUBS, .EIGHT, true },
-        CardData{ .CLUBS, .NINE, true },
-        CardData{ .CLUBS, .TEN, true },
-        CardData{ .CLUBS, .JACK, true },
-        CardData{ .CLUBS, .QUEEN, true },
-        CardData{ .CLUBS, .KING, true },
-    }
-
-    rand.shuffle(gameState.deck[:])
-
-    for card in gameState.deck {
-        append(&gameState.playDeck, card)
-    }
-
-    for cardStack, idx in gameState.columns {
-        for i in 0..=idx {
-            append(&gameState.columns[idx], gameState.playDeck[0])
-            ordered_remove(&gameState.playDeck, 0)
-            
-            if(i == idx) {
-                gameState.columns[idx][i].hidden = false
-            }
-        }
-    }
-
-    play_shuffle_sound()
-}
-
-gameProcess :: proc() {
-    rl.ClearBackground(AppState.gameState.clearBackground)
-
-    if(rl.IsKeyPressed(.ESCAPE)) {
-        AppState.currentInterface = .PAUSE
-        return
-    }
-
-    if(len(AppState.gameState.playDeck) > 0) {
-        rl.DrawTexture(CardTextures[getCardDataTexture(AppState.gameState.playDeck[0])], 0, 16, rl.WHITE)
-    } else {
-        rl.DrawTexture(CardBack, 0, 16, rl.WHITE)
-    }
-
-    // Return logic
-    if(rl.IsMouseButtonPressed(.RIGHT) && AppState.gameState.handColumnIndex != -1) {
-        if(AppState.gameState.handColumnIndex <= -3) {
-            tableuIndex := math.abs(AppState.gameState.handColumnIndex) - 3
-            append(&AppState.gameState.tableu[tableuIndex], AppState.gameState.handCards[0])
-            clear_dynamic_array(&AppState.gameState.handCards)
-            AppState.gameState.handColumnIndex = -1
-            play_card_sound()
-        }
-        if(AppState.gameState.handColumnIndex == -2) {
-            inject_at(&AppState.gameState.playDeck, 0, AppState.gameState.handCards[0])
-            clear_dynamic_array(&AppState.gameState.handCards)
-            AppState.gameState.handColumnIndex = -1
-            play_card_sound()
-        }
-        else
-        {
-            #reverse for card, cIdx in AppState.gameState.handCards {
-                append(&AppState.gameState.columns[AppState.gameState.handColumnIndex], card)
-            }
-            clear_dynamic_array(&AppState.gameState.handCards)
-            AppState.gameState.handColumnIndex = -1
-            play_card_sound()
-        }
-
-    }
-
-    // Deck handling logic
-    if(len(AppState.gameState.playDeck) > 0 && len(AppState.gameState.handCards) == 0) {
-        if(rl.CheckCollisionPointRec(rl.GetMousePosition(), rl.Rectangle{
-            cast(f32)(0 + 11),
-            cast(f32)(32 + 2),
-            42,
-            60
-        })) {
-            if(rl.IsMouseButtonPressed(.LEFT)){
-                append(&AppState.gameState.handCards, AppState.gameState.playDeck[0])
-                ordered_remove(&AppState.gameState.playDeck, 0)
-                AppState.gameState.handColumnIndex = -2
-                play_card_sound()
-            }
-            if(rl.IsMouseButtonPressed(.RIGHT)){
-                card := AppState.gameState.playDeck[0]
-                append(&AppState.gameState.playDeck, card)
-                ordered_remove(&AppState.gameState.playDeck, 0)
-                play_card_sound()
-            }
-        }
-    }
-
-    // Column Draw Processing Block
-    for &cardStack, idx in AppState.gameState.columns {
-        stackX : i32 = 48 * cast(i32)idx + 48
-        
-        if(len(cardStack) == 0) {
-            rl.DrawTexture(CardBack, stackX, 32, rl.WHITE)
-        }
-
-        for card, cIdx in cardStack {
-            if(card.hidden) {
-                rl.DrawTexture(CardBack, stackX, cast(i32)cIdx * 16 + 32, rl.WHITE)
-            } else {
-                rl.DrawTexture(CardTextures[getCardDataTexture(card)], stackX, cast(i32)cIdx * 16 + 32, rl.WHITE)
-            }
-        }
-    }
-
-    // Column Logic Processing Block
-    for &cardStack, idx in AppState.gameState.columns {
-        stackX : i32 = 48 * cast(i32)idx + 48
-
-        if(len(cardStack) == 0) {
-            if(rl.CheckCollisionPointRec(rl.GetMousePosition(), rl.Rectangle{
-                cast(f32)(stackX + 11),
-                cast(f32)(32 + 2),
-                42,
-                60
-            })) {
-                if(rl.IsMouseButtonPressed(.LEFT)) {
-                    if(len(AppState.gameState.handCards) > 0) {
-                        #reverse for handCard, handIdx in AppState.gameState.handCards {
-                            append(&cardStack, handCard)
-                        }
-                        clear_dynamic_array(&AppState.gameState.handCards)
-                        AppState.gameState.handColumnIndex = -1
-                        play_card_sound()
-                    }
-                }
-                continue
-            }
-        }
-
-        #reverse for card, cIdx in cardStack {
-            if(rl.CheckCollisionPointRec(rl.GetMousePosition(), rl.Rectangle{
-                cast(f32)(stackX + 11),
-                cast(f32)((cast(i32)cIdx * 16 + 32) + 2),
-                42,
-                60
-            })) {
-                if(rl.IsMouseButtonPressed(.LEFT)) {
-                    if(len(AppState.gameState.handCards) > 0) {
-                        if(canStackColumn(AppState.gameState.handCards[:], cardStack[:])) {
-                            #reverse for handCard, handIdx in AppState.gameState.handCards {
-                                append(&cardStack, handCard)
-                            }
-                            clear_dynamic_array(&AppState.gameState.handCards)
-                            AppState.gameState.handColumnIndex = -1
-                            play_card_sound()
-                        }
-                    } else {
-                        if(cIdx != len(cardStack) - 1) {
-                            if(isStackValid(cardStack[cIdx:len(cardStack)])) {
-                                AppState.gameState.handColumnIndex = idx
-                                if(cIdx > 0) {
-                                    cardStack[cIdx - 1].hidden = false
-                                }
-                                for newHandCardIdx := len(cardStack) - 1; newHandCardIdx >= cIdx; newHandCardIdx -= 1 {
-                                    append(&AppState.gameState.handCards, cardStack[newHandCardIdx])
-                                    ordered_remove(&cardStack, newHandCardIdx)
-                                }
-                                play_card_sound()
-                            }
-                        } else {
-                            if(cIdx > 0) {
-                                cardStack[cIdx - 1].hidden = false
-                            }
-                            AppState.gameState.handColumnIndex = idx
-                            append(&AppState.gameState.handCards, card)
-                            ordered_remove(&cardStack, cIdx)
-                            play_card_sound()
-                        }
-                    }
-                    break
-                }
-            }
-        }
-    }
-
-    // Tableu Draw Processing Block
-    for cardStack, idx in AppState.gameState.tableu {
-        stackX : i32 = 48 * cast(i32)idx + 48 * 8
-        if(len(cardStack) == 0) {
-            rl.DrawTexture(CardBack, stackX, 16, rl.WHITE)
-        } else {
-            card := cardStack[len(cardStack) - 1]
-            rl.DrawTexture(CardTextures[getCardDataTexture(card)], stackX, 16, rl.WHITE)
-        }
-    }
-
-    // Tableu Logic Processing Block
-    for &cardStack, idx in AppState.gameState.tableu {
-        stackX : i32 = 48 * cast(i32)idx + 48 * 8
-
-        if(rl.CheckCollisionPointRec(rl.GetMousePosition(), rl.Rectangle{
-                cast(f32)(stackX + 11),
-                cast(f32)(32 + 2),
-                42,
-                60
-            })) {
-                if(rl.IsMouseButtonPressed(.LEFT)) {
-                    if(len(AppState.gameState.handCards) == 0) {
-                        append(&AppState.gameState.handCards, cardStack[len(cardStack) - 1])
-                        ordered_remove(&cardStack, len(cardStack) - 1)
-                        AppState.gameState.handColumnIndex = -3 - idx
-                        play_card_sound()
-                    } else { 
-                        if(canStackTableu(AppState.gameState.handCards[:], cardStack[:])) {
-                            append(&cardStack, AppState.gameState.handCards[0])
-                            clear_dynamic_array(&AppState.gameState.handCards)
-                            AppState.gameState.handColumnIndex = -1
-                            play_card_sound()
-                        }
-                    }
-                }
-            }
-    }
-
-    if(len(AppState.gameState.handCards) > 0) {
-        #reverse for handCard, idx in AppState.gameState.handCards {
-            rl.DrawTexture(CardTextures[getCardDataTexture(handCard)], rl.GetMouseX(), rl.GetMouseY() + cast(i32)(8 * idx), rl.WHITE)
-        }
-    }
-
-    canStartAutoClear := true
-    for column in AppState.gameState.columns {
-        if(len(column) != 0 && !isStackValid(column[:])) {
-            canStartAutoClear = false
-        }
-    }
-
-    if(len(AppState.gameState.playDeck) != 0 || len(AppState.gameState.handCards) != 0) {
-        canStartAutoClear = false
-    }
-
-    if(canStartAutoClear && AppState.gameState.clearDelay <= 0.0) {
-        columnClear: for &column in AppState.gameState.columns {
-            for &tableau in AppState.gameState.tableu {
-                if(len(column) > 0) {
-                    if(canStackTableu(column[len(column)-1:len(column)], tableau[:])) {
-                        append(&tableau, column[len(column)-1])
-                        ordered_remove(&column, len(column)-1)
-                        AppState.gameState.clearDelay = 0.25
-                        play_card_sound()
-                        break columnClear
-                    }
-                }
-            }
-        }
-    }
-
-    if(AppState.gameState.clearDelay > 0) {
-        AppState.gameState.clearDelay -= rl.GetFrameTime()
-    }
-
-    if(isGameWon(AppState.gameState)) {
-        AppState.currentInterface = .END_SCREEN
-    }
-
-    if(len(AppState.gameState.handCards) > 0) {
-        for &card in AppState.gameState.handCards {
-            card.hidden = false
-        }
-    }
 }
 
 canStackTableu :: proc(handCards: []CardData, tableuData: []CardData) -> bool {
@@ -742,14 +478,21 @@ isStackValid :: proc(stackCards: []CardData) -> bool {
     return true
 }
 
-isGameWon :: proc(gameState: GameState) -> bool {
+isKlondikeWon :: proc(gameState: KlondikeState) -> bool {
     return len(gameState.tableu[0]) == 13 &&
         len(gameState.tableu[1]) == 13 &&
         len(gameState.tableu[2]) == 13 &&
         len(gameState.tableu[3]) == 13
 }
 
-getCardDataTexture :: proc(card: CardData) -> Cards {
+isFreecellWon :: proc(gameState: FreecellState) -> bool {
+    return len(gameState.tableu[0]) == 13 &&
+        len(gameState.tableu[1]) == 13 &&
+        len(gameState.tableu[2]) == 13 &&
+        len(gameState.tableu[3]) == 13
+}
+
+getCardType :: proc(card: CardData) -> Cards {
     switch(card.suite) {
         case .HEARTS:
             switch(card.cardValue) {
@@ -874,7 +617,8 @@ getCardDataTexture :: proc(card: CardData) -> Cards {
 
 pauseProcess :: proc() {
     if(rl.IsKeyPressed(.ESCAPE)) {
-        AppState.currentInterface = .GAME
+        AppState.currentInterface = AppState.previousInterface
+        AppState.previousInterface = .PAUSE
     }
 
     menuRect := slice.Rect{
@@ -901,7 +645,7 @@ pauseProcess :: proc() {
             AppState.currentInterface = .MAIN_MENU
         }
     }
-    slice.render_rectangle(menuOptionQuit, pauseQuitColor)
+    slice.render_rounded_rectangle(menuOptionQuit, 0.25, pauseQuitColor)
     slice.render_center_text("Quit", 24, menuOptionQuit)
 
     pauseResume := slice.slice_top(&menuRect, 32)
@@ -915,18 +659,15 @@ pauseProcess :: proc() {
             menuResumeColor = rl.BLUE
         }
         if(rl.IsMouseButtonReleased(.LEFT)) {
-            AppState.currentInterface = .GAME
+            AppState.currentInterface = AppState.previousInterface
+            AppState.previousInterface = .PAUSE
         }
     }
-    slice.render_rectangle(pauseResume, menuResumeColor)
+    slice.render_rounded_rectangle(pauseResume, 0.25, menuResumeColor)
     slice.render_center_text("Resume", 24, pauseResume)
 }
 
 endProcess :: proc() {
-    if(rl.IsKeyPressed(.ESCAPE)) {
-        AppState.currentInterface = .GAME
-    }
-
     menuRect := slice.Rect{
         0,
         0,
@@ -952,12 +693,12 @@ endProcess :: proc() {
             menuNewgameColor = rl.BLUE
         }
         if(rl.IsMouseButtonReleased(.LEFT)) {
-            AppState.gameState = GameState{}
-            initializeGame(&AppState.gameState)
-            AppState.currentInterface = .GAME
+            AppState.klondikeState = KlondikeState{}
+            initializeKlondike(&AppState.klondikeState)
+            AppState.currentInterface = AppState.previousInterface
         }
     }
-    slice.render_rectangle(menuEndNewgame, menuNewgameColor)
+    slice.render_rounded_rectangle(menuEndNewgame, 0.25, menuNewgameColor)
     slice.render_center_text("New Game", 24, menuEndNewgame)
 
     endReturnColor := rl.WHITE
@@ -974,7 +715,7 @@ endProcess :: proc() {
             AppState.currentInterface = .MAIN_MENU
         }
     }
-    slice.render_rectangle(menuEndReturn, endReturnColor)
+    slice.render_rounded_rectangle(menuEndReturn, 0.25, endReturnColor)
     slice.render_center_text("Return to Menu", 24, menuEndReturn)
 
     menuEndGameOver := slice.slice_top(&menuRect, 128)

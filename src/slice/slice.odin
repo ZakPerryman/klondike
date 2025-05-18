@@ -1,6 +1,7 @@
 package SliceUI
 
 import rl "vendor:raylib"
+import "core:math"
 
 Rect :: struct {
     x, y, w, h: f32
@@ -105,4 +106,15 @@ render_center_text :: proc(text: cstring, textSize: f32, rect: Rect, textColor: 
         2,
         textColor
     )
+}
+
+render_texture_centered :: proc(texture: rl.Texture2D, rect: Rect, tint: rl.Color = rl.WHITE) {
+    rl.DrawTexture(texture, cast(i32)(math.floor(rect.x - cast(f32)(texture.width / 2)) + rect.w / 2), cast(i32)(math.floor(rect.y - cast(f32)(texture.height / 2)) + rect.h / 2), tint)
+}
+
+render_texture_section_centered :: proc(texture: rl.Texture2D, source: rl.Rectangle, rect: Rect, tint: rl.Color = rl.WHITE) {
+    rl.DrawTextureRec(texture, source, {
+        (math.floor(rect.x - cast(f32)(source.width / 2)) + rect.w / 2),
+        (math.floor(rect.y - cast(f32)(source.height / 2)) + rect.h / 2)
+    }, tint)
 }
